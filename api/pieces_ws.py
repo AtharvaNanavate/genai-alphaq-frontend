@@ -4,30 +4,25 @@ import threading
 import pieces_os_client
 import queue
 import time
+
 WEBSOCKET_URL = "ws://localhost:1000/qgpt/stream"
 TIMEOUT = 10  # seconds
-
-
-
 
 class WebSocketManager:
     def __init__(self):
         self.ws = None
         self.is_connected = False
         self.response_received = None
-        self.model_id = ""
         self.query = ""
         self.loading = False
         self.final_answer = ""
         self.open_event = threading.Event()  # wait for opening event
         self.conversation = None
         self.message_queue = queue.Queue()
-        #self.QGPTRelevanceInput = pieces_os_client.QGPTRelevanceInput(seeds=)
-        #self.message_compeleted = threading.Event()
         threading.Thread(target=self._start_ws).start()
         self.open_event.wait()
-        
-    def on_message(self,ws, message):
+
+    def on_message(self, ws, message):
         """Handle incoming websocket messages."""
         try:
             response = pieces_os_client.QGPTStreamOutput.from_json(message)
@@ -66,14 +61,13 @@ class WebSocketManager:
     def _start_ws(self):
         """Start a new websocket connection."""
         print("Starting WebSocket connection...")
-        ws =  websocket.WebSocketApp(WEBSOCKET_URL,
-                                         on_open=self.on_open,
-                                         on_message=self.on_message,
-                                         on_error=self.on_error,
-                                         on_close=self.on_close)
+        ws = websocket.WebSocketApp(WEBSOCKET_URL,
+                                   on_open=self.on_open,
+                                   on_message=self.on_message,
+                                   on_error=self.on_error,
+                                   on_close=self.on_close)
         self.ws = ws
         ws.run_forever()
-        
 
     def send_message(self):
         """Send a message over the websocket."""
@@ -81,7 +75,7 @@ class WebSocketManager:
             "question": {
                 "query": self.query,
                 "relevant": {"iterable": []},
-                "model": self.model_id
+                "model": "Your_Custom_Model_Name"  # Use a single, hardcoded model name
             },
             "conversation": self.conversation
         }
@@ -102,15 +96,14 @@ class WebSocketManager:
             self.ws.close()
             self.is_connected = False
 
-    def message_generator(self, model_id, query):
+    def message_generator(self, query):
         """
         Stream messages from on message.
         This function is a generator that yields messages as they become available.
         """
         
-        # Set loading to True and initialize model_id and query
+        # Set loading to True and initialize query
         self.loading = True
-        self.model_id = model_id
         self.query = query
         
         # Send the initial message
@@ -122,12 +115,6 @@ class WebSocketManager:
                 # If a message is available, yield it
                 yield self.message_queue.get(timeout=2)
             except queue.Empty:
-                #endtime = time.time() + TIMEOUT
-                #while self.message_queue.empty():
-                    #remaining = endtime - time.time()
-                    #if remaining <= 0.0:
-                        #self.loading=False
-                        #raise ConnectionError("Timeout")
                 continue
         
         # Once loading is False, drain any remaining messages from the queue
